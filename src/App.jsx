@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-
-import Chatbot from './components/Chatbot.jsx';
+import Chatbot from './components/Chatbot.jsx'; // ✅ Correct path and case
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-         <Route path="/" element={<Chatbot/>} />
-      
+        <Route path="/" element={<Chatbot />} />
       </Routes>
     </BrowserRouter>
   );
