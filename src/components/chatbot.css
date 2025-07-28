@@ -245,7 +245,7 @@
   border-radius: 1.5rem;
   font-size: 1rem;
   background: rgba(255, 255, 255, 0.8);
-  color: #2d3436;
+  color: #0a0a0a;
   outline: none;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
@@ -399,6 +399,7 @@
   .message-input {
     padding: 0.875rem 1rem;
     font-size: 0.95rem;
+    color: black;
   }
   
   .send-button, .mic-button {
@@ -436,6 +437,7 @@
   
   .message-input {
     font-size: 1rem;
+    color: black;
   }
 }
 
