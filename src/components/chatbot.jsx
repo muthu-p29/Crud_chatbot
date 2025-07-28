@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import "./components/Chatbot.css";
+import "./Chatbot.css";
 
 const Chatbot = () => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      text: "👋 Welcome! What would you like to do?\nYou can say things like:\n• 'add user'\n• 'get name '\n• 'get address Chennai'\n• 'get id 123'\n• 'get age above 30'\n• 'delete user Sarah'",
+      text: "👋 Welcome! What would you like to do?\nYou can say things like:\n• 'add user'\n• 'user name eg:user muthu '\n• 'users from location name'\n• 'get id 123'\n• 'age above 30'\n• 'delete user Sarah'",
     },
   ]);
   const [loading, setLoading] = useState(false);
@@ -14,6 +14,9 @@ const Chatbot = () => {
   const [context, setContext] = useState({});
   const [userData, setUserData] = useState({});
   const bottomRef = useRef(null);
+  const [isListening, setIsListening] = useState(false);
+const recognitionRef = useRef(null);
+
 
   const API_URL =
     import.meta.env.VITE_API_URL ||
@@ -22,6 +25,38 @@ const Chatbot = () => {
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  useEffect(() => {
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+  recognition.onresult = (event) => {
+  let transcript = event.results[0][0].transcript;
+  transcript = transcript.toLowerCase().replace(/\.+$/, ""); // lowercase & remove trailing periods
+  setInput(transcript);
+  setTimeout(() => {
+    const fakeEvent = { preventDefault: () => {} }; // dummy event
+    handleInput(fakeEvent); // simulate Enter
+  }, 500);
+}
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+  } else {
+    console.warn("Speech recognition not supported in this browser.");
+  }
+}, []);
+
 
   useEffect(() => {
     scrollToBottom();
@@ -37,20 +72,20 @@ const Chatbot = () => {
     const match = text.match(/\b\d+\b/);
     return match ? parseInt(match[0]) : null;
   };
+const findUsersByField = async (field, value) => {
+  if (!field || !value) return [];
+  const url = `${API_URL}?${encodeURIComponent(field)}=${encodeURIComponent(value)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(await res.text());
+    const users = await res.json();
+    return Array.isArray(users) ? users : [];
+  } catch (err) {
+    console.error("Error in findUsersByField:", err);
+    return [];
+  }
+};
 
-  const findUsersByField = async (field, value) => {
-    if (!field || !value) return [];
-    const url = `${API_URL}?${encodeQueryParam(field)}=${encodeQueryParam(value)}`;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(await res.text());
-      const users = await res.json();
-      return Array.isArray(users) ? users : [];
-    } catch (err) {
-      console.error("Error in findUsersByField:", err);
-      return [];
-    }
-  };
 
   const resetConversation = () => {
     setConversationStep("initial");
@@ -95,9 +130,9 @@ const Chatbot = () => {
             resetConversation();
             break;
           }
-
+      
           // Natural language address lookup
-          const whoAddressMatch = lower.match(/who.*(live|from|in)\s+([a-z\s]+)/i);
+          const whoAddressMatch = lower.match(/users.*(live|from|in)\s+([a-z\s]+)/i);
           if (whoAddressMatch) {
             const location = whoAddressMatch[2].trim();
             const users = await findUsersByField("address", location);
@@ -111,6 +146,44 @@ const Chatbot = () => {
             resetConversation();
             break;
           }
+          // Add a quick fallback name lookup
+const userOnlyMatch = lower.match(/^user\s+(.+)/i);
+if (userOnlyMatch) {
+  const name = userOnlyMatch[1].trim();
+  const users = await findUsersByField("name", name);
+
+  if (users.length === 1) {
+    const user = users[0];
+    addMessage("bot", `✅ Found user:\n- Name: ${user.name}\n- ID: ${user.user_id}\n- Email: ${user.email}\n- Age: ${user.age}\n- Phone: ${user.phone}\n- Address: ${user.address}`);
+    resetConversation();
+  } else if (users.length > 1) {
+    const list = users.map(u => `- Name: ${u.name}, ID: ${u.user_id}`).join('\n');
+    addMessage("bot", `✅ Found multiple users named "${name}":\n${list}\n\nPlease specify the ID (e.g. 'get id 123').`);
+    setContext({ multipleUsersFound: users, operation: "get" });
+    setConversationStep("handle_multiple_users");
+  } else {
+    addMessage("bot", `❗ No users found with the name "${name}".`);
+    resetConversation();
+  }
+  break;
+}
+
+
+// Handle: names starting with a specific letter
+const startsWithMatch = lower.match(/^(names|users).*(start|begin)\s+with\s+([a-z])/i);
+if (startsWithMatch) {
+  const letter = startsWithMatch[3].toUpperCase();
+  const users = await findUsersByField("name", `^${letter}`);
+
+  if (users.length) {
+    const list = users.map(u => `- ${u.name} (ID: ${u.user_id})`).join('\n');
+    addMessage("bot", `✅ Users whose names start with "${letter}":\n${list}`);
+  } else {
+    addMessage("bot", `❗ No users found with names starting with "${letter}".`);
+  }
+  resetConversation();
+  break;
+}
 
           if (/\badd\b/.test(lower)) {
             setConversationStep("add_name");
@@ -150,14 +223,22 @@ const Chatbot = () => {
               break;
             }
             else if (id) {
-              const res = await fetch(`${API_URL}/${id}`);
-              const data = await res.json();
-              if (data && data.user_id) {
-                addMessage("bot", `✅ Found user:\n${JSON.stringify(data, null, 2)}`);
-              } else {
-                addMessage("bot", "❗ No user found with that ID.");
-              }
-              resetConversation();
+             const res = await fetch(`${API_URL}/${id}`);
+const data = await res.json();
+
+if (data && data.user_id) {
+  addMessage("bot", `✅ Found user:
+- Name: ${data.name}
+- ID: ${data.user_id}
+- Email: ${data.email}
+- Role: ${data.role}
+- Status: ${data.status}`);
+} else {
+  addMessage("bot", "❗ No user found with that ID.");
+}
+
+resetConversation();
+
             }
             else if (fieldMatch) {
               const field = fieldMatch[1].toLowerCase();
@@ -186,11 +267,20 @@ const Chatbot = () => {
             if (id) {
               const res = await fetch(`${API_URL}/${id}`);
               const userData = await res.json();
-              if (userData && userData.user_id) {
-                addMessage("bot", `📋 User details:\n${JSON.stringify(userData, null, 2)}\n\nType 'confirm' to delete this user, or 'cancel' to abort.`);
-                setContext({ deleteId: id, userData });
-                setConversationStep("confirm_delete");
-              } else {
+           if (userData && userData.user_id) {
+  addMessage("bot", `📋 User details:
+- Name: ${userData.name}
+- ID: ${userData.user_id}
+- Email: ${userData.email}
+- Role: ${userData.role}
+- Status: ${userData.status}
+
+Type 'confirm' to delete this user, or 'cancel' to abort.`);
+  
+  setContext({ deleteId: id, userData });
+  setConversationStep("confirm_delete");
+}
+else {
                 addMessage("bot", "❗ No user found with that ID.");
                 resetConversation();
               }
@@ -260,28 +350,30 @@ const Chatbot = () => {
           addMessage("bot", "And finally, what's their address?");
           break;
         }
+case "add_address": {
+  const finalUserData = { ...userData, address: trimmed };
+  setUserData(finalUserData); // optional, for tracking
 
-        case "add_address": {
-          const finalUserData = { ...userData, address: trimmed };
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(finalUserData),
+  });
 
-          const res = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(finalUserData),
-          });
+  if (res.ok) {
+    console.log("User created response:", await res.clone().json());
 
-          if (res.ok) {
-            const data = await res.json();
-            addMessage("bot", "✅ User created successfully!");
-           
-          } else {
-            const error = await res.text();
-            addMessage("bot", `❗ Failed to create user: ${error}`);
-          }
+    const readable = `✅ User created successfully!\n\nName: ${finalUserData.name}\nAge: ${finalUserData.age}\nEmail: ${finalUserData.email}\nPhone: ${finalUserData.phone}\nAddress: ${finalUserData.address}\nID: ${finalUserData.user_id}`;
+    addMessage("bot", readable);
+  } else {
+    const error = await res.text();
+    addMessage("bot", `❗ Failed to create user: ${error}`);
+  }
 
-          resetConversation();
-          break;
-        }
+  resetConversation();
+  break;
+}
+
 
         // UPDATE USER FLOW
         case "update_id": {
@@ -332,11 +424,20 @@ const Chatbot = () => {
           });
 
           if (res.ok) {
-            addMessage("bot", "✅ User updated successfully!");
-          } else {
-            const error = await res.text();
-            addMessage("bot", `❗ Failed to update user: ${error}`);
-          }
+  const updatedRes = await fetch(`${API_URL}/${user_id}`);
+  const updatedUser = await updatedRes.json();
+
+  if (updatedUser && updatedUser.user_id) {
+    const readable = `✅ User updated successfully!\n\nName: ${updatedUser.name}\nAge: ${updatedUser.age}\nEmail: ${updatedUser.email}\nPhone: ${updatedUser.phone}\nAddress: ${updatedUser.address}\nID: ${updatedUser.user_id}`;
+    addMessage("bot", readable);
+  } else {
+    addMessage("bot", "✅ User updated, but couldn't fetch updated details.");
+  }
+} else {
+  const error = await res.text();
+  addMessage("bot", `❗ Failed to update user: ${error}`);
+}
+
           
           resetConversation();
           break;
@@ -511,6 +612,22 @@ const Chatbot = () => {
               </svg>
             )}
           </button>
+          <button
+    className={`mic-button ${isListening ? "listening" : ""}`}
+    onClick={() => {
+      if (recognitionRef.current) {
+        if (isListening) {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } else {
+          recognitionRef.current.start();
+          setIsListening(true);
+        }
+      }
+    }}
+    disabled={loading}
+    title="Speak your command"
+  ></button>
         </div>
       </div>
     </div>
