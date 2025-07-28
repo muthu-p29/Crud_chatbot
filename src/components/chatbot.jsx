@@ -595,7 +595,7 @@ case "add_address": {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleInput(e)}
-            placeholder="Try: 'get age above 30', 'get name John'..."
+            placeholder="Try: 'age above 30', 'user muthu'..."
             className="message-input"
             disabled={loading}
           />
