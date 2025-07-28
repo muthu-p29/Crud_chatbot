@@ -392,6 +392,7 @@
     padding: 0.75rem 1rem;
   }
   
+
   .input-container {
     gap: 0.5rem;
   }
@@ -399,7 +400,7 @@
   .message-input {
     padding: 0.875rem 1rem;
     font-size: 0.95rem;
-    color: rgba(206, 41, 41, 0.801);
+    color: rgba(17, 16, 16, 0.801);
   }
   
   .send-button, .mic-button {
@@ -437,7 +438,7 @@
   
   .message-input {
     font-size: 1rem;
-    color: rgb(191, 53, 53);
+    color: rgb(3, 3, 3);
   }
 }
 
@@ -548,7 +549,7 @@
   
   .message-input {
     background: rgba(45, 52, 54, 0.8);
-    color: #d81f1f;
+    color: #050505;
     border-color: rgba(255, 255, 255, 0.2);
   }
   
