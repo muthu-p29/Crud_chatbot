@@ -399,7 +399,7 @@
   .message-input {
     padding: 0.875rem 1rem;
     font-size: 0.95rem;
-    color: black;
+    color: rgba(206, 41, 41, 0.801);
   }
   
   .send-button, .mic-button {
