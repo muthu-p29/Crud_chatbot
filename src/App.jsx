@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-import Chatbot from '../components/Chatbot.jsx'; // ✅ Correct path and case
+import Chatbot from "./components/Chatbot.jsx;" // ✅ Correct path and case
 import './App.css';
 
 function App() {
