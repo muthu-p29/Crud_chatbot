@@ -738,7 +738,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message here... or click 🎤 to speak"
+            placeholder="Type your message here... or click 🎙️ to speak"
           />
           <button
             className="voice-button"
@@ -746,7 +746,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
             title="Click to speak"
             disabled={loading}
           >
-            🎤
+            🎙️
           </button>
           <button
             className="send-button"
