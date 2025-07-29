@@ -575,7 +575,12 @@ body {
   .chat-box {
     padding: 15px 10px;
   }
-  
+  .chat-input {
+  width: 100%;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
   .message.user span,
   .message.bot span {
     padding: 12px 16px;
