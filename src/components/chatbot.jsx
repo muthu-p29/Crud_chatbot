@@ -21,25 +21,25 @@ const Chatbot = () => {
     sender: "bot",
     text: `👋 Welcome to CRUD Chatbot! I'm here to help you manage your user data efficiently.
 
-🚀 **Available Commands:**
+🚀 Available Commands
 
-📝 **ADD** - Create a new user profile
+📝 ADD - Create a new user profile
    Example: "add" or "create new user"
 
-🔍 **GET** - Search and retrieve users
+🔍 GET - Search and retrieve users
    • By name: or "users starting with A"
    • By location: "users from Kerala" or " users from Chennai"  
    • By age: "age above 30" 
    
 
-✏️ **UPDATE** - Modify existing user data
+✏️ UPDATE - Modify existing user data
    Example: "update" by id
 
-🗑️ **DELETE** - Remove a user (with confirmation)
+🗑️ DELETE - Remove a user (with confirmation)
    Example: "delete" by id
 
-💡 **Pro Tips:**
-• Use voice input by clicking the 🎤 microphone
+💡 Pro Tips:
+• Use voice input by clicking the 🎙️ microphone
 • Type naturally - I understand conversational language
 • All operations are secure and require confirmation
 
@@ -132,7 +132,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
   };
 
   const formatUser = (user) => {
-    return `👤 **User Profile**
+    return `👤 User Profile
 ━━━━━━━━━━━━━━━━
 📝 Name: ${user.name || "N/A"}
 🎂 Age: ${user.age || "N/A"}
@@ -327,7 +327,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
             }]);
             setMode(null);
           } else if (Array.isArray(data) && data.length > 1) {
-            const summary = data.slice(0, 5).map((u, i) => `**${i + 1}.** ${u.name} (ID: ${u.user_id})`).join('\n');
+            const summary = data.slice(0, 5).map((u, i) => `${i + 1}. ${u.name} (ID: ${u.user_id})`).join('\n');
             const message = data.length > 5
               ? `Found ${data.length} users named "${trimmed}":\n\n${summary}\n\n...and ${data.length - 5} more.\n\n💡 Enter a User ID to view details.`
               : `Found ${data.length} users named "${trimmed}":\n\n${summary}\n\n💡 Enter a User ID to view details.`;
@@ -453,7 +453,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
             setPendingDeleteUser(user);
             setMessages(prev => [...prev, { 
               sender: "bot", 
-              text: enhanceMessage(`⚠️ **DELETION CONFIRMATION REQUIRED**\n\n${formatUser(user)}\n\n🚨 **WARNING:** This action cannot be undone!\n\nType 'confirm' to permanently delete this user, or anything else to cancel.`, 'warning')
+              text: enhanceMessage(`⚠️ DELETION CONFIRMATION REQUIRED\n\n${formatUser(user)}\n\n🚨 WARNING: This action cannot be undone!\n\nType 'confirm' to permanently delete this user, or anything else to cancel.`, 'warning')
             }]);
           }
         } catch {
@@ -506,7 +506,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
             setUpdateStep("awaiting_field");
             setMessages(prev => [...prev, { 
               sender: "bot", 
-              text: enhanceMessage(`Current user details:\n\n${formatUser(user)}\n\n📝 Which field would you like to update?\n\n• **name** - Full name\n• **age** - Age in years\n• **email** - Email address\n• **phone** - Phone number\n• **address** - Home address\n\nJust type the field name:`, 'update')
+              text: enhanceMessage(`Current user details:\n\n${formatUser(user)}\n\n📝 Which field would you like to update?\n\n• name - Full name\n• age - Age in years\n• email - Email address\n• phone - Phone number\n• address - Home address\n\nJust type the field name:`, 'update')
             }]);
           }
         } catch {
@@ -632,7 +632,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
         setMode("delete");
         setMessages(prev => [...prev, { 
           sender: "bot", 
-          text: enhanceMessage("⚠️ **User Deletion**\n\nThis will permanently remove a user from the database.\n\nPlease enter the User ID of the user you want to delete:", 'delete')
+          text: enhanceMessage("⚠️ User Deletion\n\nThis will permanently remove a user from the database.\n\nPlease enter the User ID of the user you want to delete:", 'delete')
         }]);
       }
       setInput("");
@@ -657,7 +657,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
         if (data.length === 0) {
           formatted = enhanceMessage("No users found matching those criteria.", 'error');
         } else {
-          const userList = data.map((u, i) => `**${i + 1}.** ${formatUser(u)}`).join('\n\n');
+          const userList = data.map((u, i) => `${i + 1}. ${formatUser(u)}`).join('\n\n');
           formatted = enhanceMessage(`Found ${data.length} user(s):\n\n${userList}`, 'search');
         }
       } else if (typeof data === "object" && data !== null) {

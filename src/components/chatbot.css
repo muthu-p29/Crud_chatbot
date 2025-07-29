@@ -581,9 +581,15 @@ body {
     padding: 12px 16px;
     font-size: 0.85rem;
   }
+  .input-wrapper {
+    max-width: 100%;
+    overflow-x: hidden;
+    flex-wrap: wrap;
+  }
   
   .input-section {
     padding: 10px;
   }
+
  
 }
