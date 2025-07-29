@@ -1,633 +1,760 @@
-import { useEffect, useRef, useState } from "react";
-import "../components/chatbot.css";
+import { useState, useEffect, useRef } from "react";
+import "./Chatbot.css";
 
 const Chatbot = () => {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      role: "bot",
-      text: "👋 Welcome! What would you like to do?\nYou can say things like:\n• 'add user'\n• 'user name eg:user muthu '\n• 'users from location name'\n• 'get id 123'\n• 'age above 30'\n• 'delete user Sarah'",
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [conversationStep, setConversationStep] = useState("initial");
-  const [context, setContext] = useState({});
-  const [userData, setUserData] = useState({});
-  const bottomRef = useRef(null);
-  const [isListening, setIsListening] = useState(false);
-const recognitionRef = useRef(null);
+  const [conversationState, setConversationState] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [mode, setMode] = useState(null);
+  const [updateData, setUpdateData] = useState({});
+  const [updateStep, setUpdateStep] = useState(null);
+  const [pendingDeleteUser, setPendingDeleteUser] = useState(null);
+  const recognitionRef = useRef(null);
+  const chatBoxRef = useRef(null);
 
+  const API_URL = import.meta.env.VITE_API_URL;
 
-  const API_URL =
-    import.meta.env.VITE_API_URL ||
-    "https://ewdih13v02.execute-api.eu-north-1.amazonaws.com/default/CRUD_app_chatbot";
+  // Enhanced welcome message with more interactive elements
+  const getWelcomeMessage = () => ({
+    sender: "bot",
+    text: `👋 Welcome to CRUD Chatbot! I'm here to help you manage your user data efficiently.
 
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  useEffect(() => {
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+🚀 **Available Commands:**
 
-  recognition.onresult = (event) => {
-  let transcript = event.results[0][0].transcript;
-  transcript = transcript.toLowerCase().replace(/\.+$/, ""); // lowercase & remove trailing periods
-  setInput(transcript);
-  setTimeout(() => {
-    const fakeEvent = { preventDefault: () => {} }; // dummy event
-    handleInput(fakeEvent); // simulate Enter
-  }, 500);
-}
+📝 **ADD** - Create a new user profile
+   Example: "add" or "create new user"
 
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-    };
+🔍 **GET** - Search and retrieve users
+   • By name: or "users starting with A"
+   • By location: "users from Kerala" or " users from Chennai"  
+   • By age: "age above 30" 
+   
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+✏️ **UPDATE** - Modify existing user data
+   Example: "update" by id
 
-    recognitionRef.current = recognition;
-  } else {
-    console.warn("Speech recognition not supported in this browser.");
-  }
-}, []);
+🗑️ **DELETE** - Remove a user (with confirmation)
+   Example: "delete" by id
 
+💡 **Pro Tips:**
+• Use voice input by clicking the 🎤 microphone
+• Type naturally - I understand conversational language
+• All operations are secure and require confirmation
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const addMessage = (role, text) => {
-    setMessages((prev) => [...prev, { role, text }]);
-  };
-
-  const encodeQueryParam = (str) => encodeURIComponent(str);
-
-  const extractId = (text) => {
-    const match = text.match(/\b\d+\b/);
-    return match ? parseInt(match[0]) : null;
-  };
-const findUsersByField = async (field, value) => {
-  if (!field || !value) return [];
-  const url = `${API_URL}?${encodeURIComponent(field)}=${encodeURIComponent(value)}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(await res.text());
-    const users = await res.json();
-    return Array.isArray(users) ? users : [];
-  } catch (err) {
-    console.error("Error in findUsersByField:", err);
-    return [];
-  }
-};
-
-
-  const resetConversation = () => {
-    setConversationStep("initial");
-    setContext({});
-    setUserData({});
-    addMessage("bot", "Anything else? You can add, get, update, or delete users.");
-  };
-
-  const handleInput = async (e) => {
-    e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    addMessage("user", trimmed);
-    setInput("");
-    setLoading(true);
-
-    const lower = trimmed.toLowerCase();
-
-    try {
-      switch (conversationStep) {
-        case "initial": {
-          const id = extractId(trimmed);
-          const fieldMatch = trimmed.match(/^(name|address|email|phone|age)\s+(.+)/i);
-
-          // Natural language age-only detection
-          const justAge = trimmed.match(/^(?:age\s*)?(under|below|less than|above|over|greater than)\s+(\d+)/i);
-          if (justAge) {
-            const op = justAge[1].toLowerCase();
-            const val = parseInt(justAge[2]);
-            const query = ["under", "below", "less than"].includes(op) ? `age_lt=${val}` : `age_gt=${val}`;
-
-            const res = await fetch(`${API_URL}?${query}`);
-            const users = await res.json();
-
-            if (Array.isArray(users) && users.length) {
-              const list = users.map(u => `- ${u.name}, Age: ${u.age}, ID: ${u.user_id}`).join("\n");
-              addMessage("bot", `✅ Users ${op} ${val}:\n${list}`);
-            } else {
-              addMessage("bot", `❗ No users found ${op} ${val}.`);
-            }
-            resetConversation();
-            break;
-          }
-      
-          // Natural language address lookup
-          const whoAddressMatch = lower.match(/users.*(live|from|in)\s+([a-z\s]+)/i);
-          if (whoAddressMatch) {
-            const location = whoAddressMatch[2].trim();
-            const users = await findUsersByField("address", location);
-
-            if (users.length) {
-              const list = users.map(u => `- ${u.name} (ID: ${u.user_id})`).join('\n');
-              addMessage("bot", `✅ Users from ${location}:\n${list}`);
-            } else {
-              addMessage("bot", `❗ No users found in "${location}".`);
-            }
-            resetConversation();
-            break;
-          }
-          // Add a quick fallback name lookup
-const userOnlyMatch = lower.match(/^user\s+(.+)/i);
-if (userOnlyMatch) {
-  const name = userOnlyMatch[1].trim();
-  const users = await findUsersByField("name", name);
-
-  if (users.length === 1) {
-    const user = users[0];
-    addMessage("bot", `✅ Found user:\n- Name: ${user.name}\n- ID: ${user.user_id}\n- Email: ${user.email}\n- Age: ${user.age}\n- Phone: ${user.phone}\n- Address: ${user.address}`);
-    resetConversation();
-  } else if (users.length > 1) {
-    const list = users.map(u => `- Name: ${u.name}, ID: ${u.user_id}`).join('\n');
-    addMessage("bot", `✅ Found multiple users named "${name}":\n${list}\n\nPlease specify the ID (e.g. 'get id 123').`);
-    setContext({ multipleUsersFound: users, operation: "get" });
-    setConversationStep("handle_multiple_users");
-  } else {
-    addMessage("bot", `❗ No users found with the name "${name}".`);
-    resetConversation();
-  }
-  break;
-}
-
-
-// Handle: names starting with a specific letter
-const startsWithMatch = lower.match(/^(names|users).*(start|begin)\s+with\s+([a-z])/i);
-if (startsWithMatch) {
-  const letter = startsWithMatch[3].toUpperCase();
-  const users = await findUsersByField("name", `^${letter}`);
-
-  if (users.length) {
-    const list = users.map(u => `- ${u.name} (ID: ${u.user_id})`).join('\n');
-    addMessage("bot", `✅ Users whose names start with "${letter}":\n${list}`);
-  } else {
-    addMessage("bot", `❗ No users found with names starting with "${letter}".`);
-  }
-  resetConversation();
-  break;
-}
-
-          if (/\badd\b/.test(lower)) {
-            setConversationStep("add_name");
-            addMessage("bot", "Great! What's the user's name?");
-          }
-          else if (/\bget\b/.test(lower)) {
-            // Natural language age queries
-            const agePhrase = lower.match(/(age|users|people).*(above|over|greater than|under|below|less than|between)\s+(\d+)(?:\s*(?:and|to|-)\s*(\d+))?/i);
-            if (agePhrase) {
-              const operator = agePhrase[2].toLowerCase();
-              const num1 = parseInt(agePhrase[3]);
-              const num2 = agePhrase[4] ? parseInt(agePhrase[4]) : null;
-              let query = "";
-
-              if (["above", "over", "greater than"].includes(operator)) {
-                query = `age_gt=${num1}`;
-              } else if (["under", "below", "less than"].includes(operator)) {
-                query = `age_lt=${num1}`;
-              } else if (operator === "between" && num1 && num2) {
-                query = `age_gte=${num1}&age_lte=${num2}`;
-              }
-
-              if (query) {
-                const res = await fetch(`${API_URL}?${query}`);
-                const users = await res.json();
-
-                if (Array.isArray(users) && users.length) {
-                  const list = users.map(u => `- Name: ${u.name}, ID: ${u.user_id}, Age: ${u.age}`).join('\n');
-                  addMessage("bot", `✅ Found ${users.length} users:\n${list}`);
-                } else {
-                  addMessage("bot", "❗ No users found matching that age filter.");
-                }
-              } else {
-                addMessage("bot", "❗ Couldn't parse the age filter properly.");
-              }
-              resetConversation();
-              break;
-            }
-            else if (id) {
-             const res = await fetch(`${API_URL}/${id}`);
-const data = await res.json();
-
-if (data && data.user_id) {
-  addMessage("bot", `✅ Found user:
-- Name: ${data.name}
-- ID: ${data.user_id}
-- Email: ${data.email}
-- Role: ${data.role}
-- Status: ${data.status}`);
-} else {
-  addMessage("bot", "❗ No user found with that ID.");
-}
-
-resetConversation();
-
-            }
-            else if (fieldMatch) {
-              const field = fieldMatch[1].toLowerCase();
-              const value = fieldMatch[2].trim();
-              const users = await findUsersByField(field, value);
-
-              if (users.length === 1) {
-                addMessage("bot", `✅ Found user:\n${JSON.stringify(users[0], null, 2)}`);
-                resetConversation();
-              } else if (users.length > 1) {
-                const list = users.map(u => `- Name: ${u.name}, ID: ${u.user_id}`).join('\n');
-                addMessage("bot", `✅ Found multiple users:\n${list}\n\nPlease specify the ID (e.g. 'get id 123').`);
-                setContext({ multipleUsersFound: users, operation: "get" });
-                setConversationStep("handle_multiple_users");
-              } else {
-                addMessage("bot", `❗ No users found with ${field} = "${value}".`);
-                resetConversation();
-              }
-            }
-            else {
-              setConversationStep("get_id");
-              addMessage("bot", "Please specify either:\n• User ID (e.g., 'get 123')\n• Field (e.g., 'get name Abbas', 'get address Chennai')\n• Age filter (e.g., 'get age above 30')");
-            }
-          }
-          else if (/\bdelete\b/.test(lower)) {
-            if (id) {
-              const res = await fetch(`${API_URL}/${id}`);
-              const userData = await res.json();
-           if (userData && userData.user_id) {
-  addMessage("bot", `📋 User details:
-- Name: ${userData.name}
-- ID: ${userData.user_id}
-- Email: ${userData.email}
-- Role: ${userData.role}
-- Status: ${userData.status}
-
-Type 'confirm' to delete this user, or 'cancel' to abort.`);
-  
-  setContext({ deleteId: id, userData });
-  setConversationStep("confirm_delete");
-}
-else {
-                addMessage("bot", "❗ No user found with that ID.");
-                resetConversation();
-              }
-            } else {
-              setConversationStep("delete_id");
-              addMessage("bot", "Please specify the user ID to delete (e.g. 'delete id 123').");
-            }
-          }
-          else if (/\bupdate\b/.test(lower)) {
-            if (id) {
-              setContext({ user_id: id });
-              setConversationStep("update_field");
-              addMessage("bot", "Which field do you want to update? (name, email, age, phone, address)");
-            } else {
-              setConversationStep("update_id");
-              addMessage("bot", "Enter the user ID to update:");
-            }
-          }
-          else {
-            addMessage("bot", "I didn't understand that. Try:\n• 'add user'\n• 'get name Abbas'\n• 'get id 123'\n• 'get age above 30'");
-          }
-          break;
-        }
-
-        // ADD USER FLOW
-        case "add_name": {
-          setUserData({ name: trimmed });
-          setConversationStep("add_email");
-          addMessage("bot", "Perfect! What's their email address?");
-          break;
-        }
-
-        case "add_email": {
-          setUserData(prev => ({ ...prev, email: trimmed }));
-          setConversationStep("add_user_id");
-          addMessage("bot", "Got it! Please enter a unique user ID (numbers only):");
-          break;
-        }
-
-        case "add_user_id": {
-          const userId = parseInt(trimmed);
-          if (isNaN(userId)) {
-            addMessage("bot", "❗ Please enter a valid numeric user ID.");
-            break;
-          }
-          setUserData(prev => ({ ...prev, user_id: userId }));
-          setConversationStep("add_age");
-          addMessage("bot", "Great! How old are they?");
-          break;
-        }
-
-        case "add_age": {
-          const age = parseInt(trimmed);
-          if (isNaN(age) || age < 0 || age > 150) {
-            addMessage("bot", "❗ Please enter a valid age (between 0 and 150):");
-            break;
-          }
-          setUserData(prev => ({ ...prev, age }));
-          setConversationStep("add_phone");
-          addMessage("bot", "Awesome! What's their phone number?");
-          break;
-        }
-
-        case "add_phone": {
-          setUserData(prev => ({ ...prev, phone: trimmed }));
-          setConversationStep("add_address");
-          addMessage("bot", "And finally, what's their address?");
-          break;
-        }
-case "add_address": {
-  const finalUserData = { ...userData, address: trimmed };
-  setUserData(finalUserData); // optional, for tracking
-
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(finalUserData),
+Ready to get started? Just type a command or ask me anything! 🌟`,
   });
 
-  if (res.ok) {
-    console.log("User created response:", await res.clone().json());
+  // Enhanced message responses with icons and formatting
+  const enhanceMessage = (text, type = 'info') => {
+    let icon = '';
+    switch (type) {
+      case 'success': icon = '✅ '; break;
+      case 'error': icon = '❌ '; break;
+      case 'search': icon = '🔍 '; break;
+      case 'warning': icon = '⚠️ '; break;
+      case 'info': icon = 'ℹ️ '; break;
+      case 'add': icon = '➕ '; break;
+      case 'update': icon = '📝 '; break;
+      case 'delete': icon = '🗑️ '; break;
+      case 'user': icon = '👤 '; break;
+      default: icon = '';
+    }
+    return icon + text;
+  };
 
-    const readable = `✅ User created successfully!\n\nName: ${finalUserData.name}\nAge: ${finalUserData.age}\nEmail: ${finalUserData.email}\nPhone: ${finalUserData.phone}\nAddress: ${finalUserData.address}\nID: ${finalUserData.user_id}`;
-    addMessage("bot", readable);
-  } else {
-    const error = await res.text();
-    addMessage("bot", `❗ Failed to create user: ${error}`);
-  }
+  useEffect(() => {
+    setMessages([getWelcomeMessage()]);
+  }, []);
 
-  resetConversation();
-  break;
-}
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
 
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
 
-        // UPDATE USER FLOW
-        case "update_id": {
-          const id = extractId(trimmed);
-          if (id) {
-            setContext({ user_id: id });
-            setConversationStep("update_field");
-            addMessage("bot", "Which field do you want to update? (name, email, age, phone, address)");
-          } else {
-            addMessage("bot", "Please enter a valid user ID (number):");
-          }
-          break;
+      recognition.onresult = (event) => {
+        let speechToText = event.results[0][0].transcript.trim();
+        speechToText = speechToText.replace(/[.,!?]$/, "");
+        setInput(speechToText);
+        
+        // Add visual feedback for voice input
+        const voiceButton = document.querySelector('.voice-button');
+        if (voiceButton) {
+          voiceButton.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+          setTimeout(() => {
+            voiceButton.style.background = 'linear-gradient(135deg, #f59e0b, #f97316)';
+          }, 1000);
         }
+      };
 
-        case "update_field": {
-          const validFields = ["name", "email", "age", "phone", "address"];
-          const field = lower.trim();
-          
-          if (validFields.includes(field)) {
-            setContext(prev => ({ ...prev, field }));
-            setConversationStep("update_value");
-            addMessage("bot", `What's the new ${field}?`);
-          } else {
-            addMessage("bot", "Please choose a valid field: name, email, age, phone, or address");
-          }
-          break;
-        }
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error", event.error);
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Sorry, I couldn't understand that. Please try again or type your message.", 'error')
+        }]);
+      };
 
-        case "update_value": {
-          const { user_id, field } = context;
-          let value = trimmed;
-          
-          if (field === "age") {
-            const age = parseInt(trimmed);
-            if (isNaN(age) || age < 0 || age > 150) {
-              addMessage("bot", "Please enter a valid age (number between 0-150):");
-              break;
-            }
-            value = age;
-          }
+      recognitionRef.current = recognition;
+    }
+  }, []);
 
-          const updateData = { [field]: value };
-          
-          const res = await fetch(`${API_URL}/${user_id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(updateData),
-          });
-
-          if (res.ok) {
-  const updatedRes = await fetch(`${API_URL}/${user_id}`);
-  const updatedUser = await updatedRes.json();
-
-  if (updatedUser && updatedUser.user_id) {
-    const readable = `✅ User updated successfully!\n\nName: ${updatedUser.name}\nAge: ${updatedUser.age}\nEmail: ${updatedUser.email}\nPhone: ${updatedUser.phone}\nAddress: ${updatedUser.address}\nID: ${updatedUser.user_id}`;
-    addMessage("bot", readable);
-  } else {
-    addMessage("bot", "✅ User updated, but couldn't fetch updated details.");
-  }
-} else {
-  const error = await res.text();
-  addMessage("bot", `❗ Failed to update user: ${error}`);
-}
-
-          
-          resetConversation();
-          break;
-        }
-
-        // DELETE USER FLOW
-        case "delete_id": {
-          const id = extractId(trimmed);
-          if (id) {
-            const res = await fetch(`${API_URL}/${id}`);
-            const userData = await res.json();
-            if (userData && userData.user_id) {
-              addMessage("bot", `📋 User details:\n${JSON.stringify(userData, null, 2)}\n\nType 'confirm' to delete this user, or 'cancel' to abort.`);
-              setContext({ deleteId: id, userData });
-              setConversationStep("confirm_delete");
-            } else {
-              addMessage("bot", "❗ No user found with that ID.");
-              resetConversation();
-            }
-          } else {
-            addMessage("bot", "Please enter a valid user ID (number):");
-          }
-          break;
-        }
-
-        case "confirm_delete": {
-          if (lower === "confirm") {
-            const { deleteId } = context;
-            const res = await fetch(`${API_URL}/${deleteId}`, {
-              method: "DELETE",
-            });
-
-            if (res.ok) {
-              addMessage("bot", "✅ User deleted successfully!");
-            } else {
-              const error = await res.text();
-              addMessage("bot", `❗ Failed to delete user: ${error}`);
-            }
-            resetConversation();
-          } else if (lower === "cancel") {
-            addMessage("bot", "❌ Delete operation cancelled.");
-            resetConversation();
-          } else {
-            addMessage("bot", "Please type 'confirm' to delete or 'cancel' to abort.");
-          }
-          break;
-        }
-
-        // GET USER FLOW
-        case "get_id": {
-          const id = extractId(trimmed);
-          const fieldMatch = trimmed.match(/^(name|address|email|phone|age)\s+(.+)/i);
-          
-          if (id) {
-            const res = await fetch(`${API_URL}/${id}`);
-            const data = await res.json();
-            if (data && data.user_id) {
-              addMessage("bot", `✅ Found user:\n${JSON.stringify(data, null, 2)}`);
-            } else {
-              addMessage("bot", "❗ No user found with that ID.");
-            }
-            resetConversation();
-          } else if (fieldMatch) {
-            const field = fieldMatch[1].toLowerCase();
-            const value = fieldMatch[2].trim();
-            const users = await findUsersByField(field, value);
-
-            if (users.length === 1) {
-              addMessage("bot", `✅ Found user:\n${JSON.stringify(users[0], null, 2)}`);
-              resetConversation();
-            } else if (users.length > 1) {
-              const list = users.map(u => `- Name: ${u.name}, ID: ${u.user_id}`).join('\n');
-              addMessage("bot", `✅ Found multiple users:\n${list}\n\nPlease specify the ID.`);
-              resetConversation();
-            } else {
-              addMessage("bot", `❗ No users found with ${field} = "${value}".`);
-              resetConversation();
-            }
-          } else {
-            addMessage("bot", "Please provide a valid ID number or field search (e.g., 'name John'):");
-          }
-          break;
-        }
-
-        case "handle_multiple_users": {
-          const id = extractId(trimmed);
-          if (id) {
-            const res = await fetch(`${API_URL}/${id}`);
-            const data = await res.json();
-            if (data && data.user_id) {
-              addMessage("bot", `✅ Found user:\n${JSON.stringify(data, null, 2)}`);
-            } else {
-              addMessage("bot", "❗ No user found with that ID.");
-            }
-            resetConversation();
-          } else {
-            addMessage("bot", "Please enter a valid user ID from the list above:");
-          }
-          break;
-        }
-
-        default:
-          addMessage("bot", "🤖 I'm not sure what you meant. Try saying something like 'add user' or 'get name John'.");
-          resetConversation();
-          break;
+  const handleVoiceInput = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      // Visual feedback for voice recording
+      const voiceButton = document.querySelector('.voice-button');
+      if (voiceButton) {
+        voiceButton.innerHTML = '🔴';
+        voiceButton.style.animation = 'pulse 1s infinite';
+        setTimeout(() => {
+          voiceButton.innerHTML = '🎤';
+          voiceButton.style.animation = '';
+        }, 3000);
       }
-    } catch (err) {
-      console.error("Error:", err);
-      addMessage("bot", "⚠️ Something went wrong. Please try again.");
-      resetConversation();
+    } else {
+      setMessages(prev => [...prev, { 
+        sender: "bot", 
+        text: enhanceMessage("Voice recognition is not supported in this browser. Please type your message instead.", 'warning')
+      }]);
+    }
+  };
+
+  const formatUser = (user) => {
+    return `👤 **User Profile**
+━━━━━━━━━━━━━━━━
+📝 Name: ${user.name || "N/A"}
+🎂 Age: ${user.age || "N/A"}
+📧 Email:${user.email || "N/A"}
+📱 Phone:${user.phone || "N/A"}
+🏠 Address: ${user.address || "N/A"}
+🆔 User ID: ${user.user_id || "N/A"}
+━━━━━━━━━━━━━━━━`;
+  };
+
+  const handleRefresh = () => {
+    // Clear all states properly
+    setMessages([getWelcomeMessage()]);
+    setInput("");
+    setLoading(false);
+    setConversationState(null);
+    setFormData({});
+    setMode(null);
+    setUpdateData({});
+    setUpdateStep(null);
+    setPendingDeleteUser(null);
+    
+    // Add confirmation message
+    setTimeout(() => {
+      setMessages(prev => [...prev, { 
+        sender: "bot", 
+        text: enhanceMessage("Session refreshed! All data cleared and ready for new operations.", 'success')
+      }]);
+    }, 500);
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const newMessage = { sender: "user", text: input };
+    setMessages(prev => [...prev, newMessage]);
+    const lowerInput = input.trim().toLowerCase();
+
+    // ADD FLOW
+    if (conversationState) {
+      const updatedForm = { ...formData };
+      let nextState = null;
+
+      switch (conversationState) {
+        case "name":
+          updatedForm.name = input;
+          nextState = "age";
+          break;
+        case "age":
+          if (isNaN(input) || input <= 0) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid age (numbers only).", 'error')
+            }]);
+            setInput("");
+            return;
+          }
+          updatedForm.age = input;
+          nextState = "email";
+          break;
+        case "email":
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(input)) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid email address (e.g., user@example.com).", 'error')
+            }]);
+            setInput("");
+            return;
+          }
+          updatedForm.email = input;
+          nextState = "phone";
+          break;
+        case "phone":
+          const phoneRegex = /^[\+]?[1-9][\d]{9,14}$/;
+          if (!phoneRegex.test(input.replace(/[\s\-\(\)]/g, ''))) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid phone number (10+ digits).", 'error')
+            }]);
+            setInput("");
+            return;
+          }
+          updatedForm.phone = input;
+          nextState = "address";
+          break;
+        case "address":
+          updatedForm.address = input;
+          nextState = "user_id";
+          break;
+        case "user_id":
+          if (isNaN(input) || input <= 0) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid User ID (numbers only).", 'error')
+            }]);
+            setInput("");
+            return;
+          }
+          updatedForm.user_id = input;
+          setFormData(updatedForm);
+          setConversationState(null);
+          setMode(null);
+
+          setMessages(prev => [
+            ...prev,
+            { sender: "bot", text: enhanceMessage(`User profile created successfully!\n\n${formatUser(updatedForm)}`, 'success') },
+          ]);
+
+          try {
+            setLoading(true);
+            const res = await fetch(API_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "add", data: updatedForm }),
+            });
+            const result = await res.json();
+            setMessages(prev => [
+              ...prev,
+              { sender: "bot", text: enhanceMessage(result.message || "User data saved to database successfully!", 'success') },
+            ]);
+          } catch {
+            setMessages(prev => [
+              ...prev,
+              { sender: "bot", text: enhanceMessage("Failed to save to database. Please try again.", 'error') },
+            ]);
+          } finally {
+            setLoading(false);
+          }
+
+          setMessages(prev => [
+            ...prev,
+            { sender: "bot", text: enhanceMessage("What would you like to do next?\n\n💡 Try: 'add', 'get', 'update', or 'delete'", 'info') },
+          ]);
+          setInput("");
+          return;
+      }
+
+      setFormData(updatedForm);
+
+      if (nextState) {
+        setConversationState(nextState);
+        const prompts = {
+          name: "What's the user's full name?",
+          age: "How old are they? (Enter age in years)",
+          email: "What's their email address?",
+          phone: "What's their phone number?",
+          address: "What's their address?",
+          user_id: "Finally, assign a unique User ID (number)"
+        };
+        setMessages(prev => [
+          ...prev,
+          { sender: "bot", text: enhanceMessage(prompts[nextState], 'add') },
+        ]);
+      }
+
+      setInput("");
+      return;
     }
 
-    setLoading(false);
+    // GET MODE
+    if (mode === "get") {
+      try {
+        setLoading(true);
+        let res;
+        const trimmed = input.trim();
+
+        if (/^\d+$/.test(trimmed)) {
+          res = await fetch(`${API_URL}?user_id=${trimmed}`);
+          const data = await res.json();
+
+          if (!data || data.error || !data.name) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`No user found with ID: ${trimmed}`, 'error')
+            }]);
+          } else {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`User found!\n\n${formatUser(data)}`, 'user')
+            }]);
+          }
+          setMode(null);
+        } else {
+          res = await fetch(`${API_URL}?name=${encodeURIComponent(trimmed)}`);
+          const data = await res.json();
+
+          if (!data || data.error || (Array.isArray(data) && data.length === 0)) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`No users found with name: "${trimmed}"`, 'error')
+            }]);
+            setMode(null);
+          } else if (Array.isArray(data) && data.length > 1) {
+            const summary = data.slice(0, 5).map((u, i) => `**${i + 1}.** ${u.name} (ID: ${u.user_id})`).join('\n');
+            const message = data.length > 5
+              ? `Found ${data.length} users named "${trimmed}":\n\n${summary}\n\n...and ${data.length - 5} more.\n\n💡 Enter a User ID to view details.`
+              : `Found ${data.length} users named "${trimmed}":\n\n${summary}\n\n💡 Enter a User ID to view details.`;
+
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(message, 'search')
+            }]);
+            setMode("get_by_id");
+          } else {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`User found!\n\n${formatUser(data[0])}`, 'user')
+            }]);
+            setMode(null);
+          }
+        }
+      } catch {
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Network error. Please check your connection and try again.", 'error')
+        }]);
+        setMode(null);
+      } finally {
+        setLoading(false);
+        setInput("");
+      }
+      return;
+    }
+
+    if (mode === "get_by_id") {
+      const userId = input.trim();
+      if (!/^\d+$/.test(userId)) {
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Please provide a valid numeric User ID.", 'error')
+        }]);
+        setInput("");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const res = await fetch(`${API_URL}?user_id=${userId}`);
+        const data = await res.json();
+
+        if (!data || data.error) {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage(`User with ID ${userId} not found.`, 'error')
+          }]);
+        } else {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage(`Here's the user details:\n\n${formatUser(data)}`, 'user')
+          }]);
+        }
+      } catch {
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Error retrieving user data.", 'error')
+        }]);
+      } finally {
+        setLoading(false);
+        setMode(null);
+        setInput("");
+      }
+      return;
+    }
+
+    // DELETE MODE
+    if (mode === "delete") {
+      const trimmedInput = input.trim();
+
+      if (trimmedInput.toLowerCase() === "confirm" && pendingDeleteUser) {
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_URL}?user_id=${pendingDeleteUser.user_id}`, { method: "DELETE" });
+          const result = await res.json();
+
+          if (result.error) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`Deletion failed: ${result.error}`, 'error')
+            }]);
+          } else {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`User "${pendingDeleteUser.name}" has been permanently deleted.`, 'success')
+            }]);
+          }
+        } catch {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Network error during deletion. Please try again.", 'error')
+          }]);
+        } finally {
+          setLoading(false);
+          setMode(null);
+          setInput("");
+          setPendingDeleteUser(null);
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("What would you like to do next?\n\n💡 Try: 'add', 'get', 'update', or 'delete'", 'info')
+          }]);
+        }
+        return;
+      }
+
+      if (/^\d+$/.test(trimmedInput)) {
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_URL}?user_id=${trimmedInput}`);
+          const user = await res.json();
+
+          if (!user || user.error || !user.name) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`User with ID ${trimmedInput} not found.`, 'error')
+            }]);
+            setMode(null);
+          } else {
+            setPendingDeleteUser(user);
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`⚠️ **DELETION CONFIRMATION REQUIRED**\n\n${formatUser(user)}\n\n🚨 **WARNING:** This action cannot be undone!\n\nType 'confirm' to permanently delete this user, or anything else to cancel.`, 'warning')
+            }]);
+          }
+        } catch {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Error fetching user for deletion.", 'error')
+          }]);
+        } finally {
+          setLoading(false);
+          setInput("");
+        }
+        return;
+      } else {
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Please enter a valid numeric User ID or type 'confirm' to proceed with deletion.", 'error')
+        }]);
+        setInput("");
+        return;
+      }
+    }
+
+    // UPDATE MODE
+    if (mode === "update") {
+      if (updateStep === "awaiting_id") {
+        try {
+          setLoading(true);
+          const userId = input.trim();
+          if (!/^\d+$/.test(userId)) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid numeric User ID.", 'error')
+            }]);
+            setInput("");
+            setLoading(false);
+            return;
+          }
+
+          const res = await fetch(`${API_URL}?user_id=${userId}`);
+          const user = await res.json();
+
+          if (!user || user.error || !user.name) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`User with ID ${userId} not found.`, 'error')
+            }]);
+            setMode(null);
+          } else {
+            setUpdateData(user);
+            setUpdateStep("awaiting_field");
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage(`Current user details:\n\n${formatUser(user)}\n\n📝 Which field would you like to update?\n\n• **name** - Full name\n• **age** - Age in years\n• **email** - Email address\n• **phone** - Phone number\n• **address** - Home address\n\nJust type the field name:`, 'update')
+            }]);
+          }
+        } catch {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Error fetching user data.", 'error')
+          }]);
+          setMode(null);
+        } finally {
+          setLoading(false);
+        }
+        setInput("");
+        return;
+      }
+
+      if (updateStep === "awaiting_field") {
+        const field = lowerInput;
+        if (["name", "age", "email", "phone", "address"].includes(field)) {
+          setUpdateStep(`updating_${field}`);
+          const prompts = {
+            name: "Enter the new full name:",
+            age: "Enter the new age (numbers only):",
+            email: "Enter the new email address:",
+            phone: "Enter the new phone number:",
+            address: "Enter the new address:"
+          };
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage(prompts[field], 'update')
+          }]);
+        } else {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Invalid field selection. Please choose from: name, age, email, phone, or address", 'error')
+          }]);
+        }
+        setInput("");
+        return;
+      }
+
+      if (updateStep.startsWith("updating_")) {
+        const fieldToUpdate = updateStep.replace("updating_", "");
+        
+        // Validation for specific fields
+        if (fieldToUpdate === "age" && (isNaN(input) || input <= 0)) {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Please enter a valid age (numbers only).", 'error')
+          }]);
+          setInput("");
+          return;
+        }
+        
+        if (fieldToUpdate === "email") {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(input)) {
+            setMessages(prev => [...prev, { 
+              sender: "bot", 
+              text: enhanceMessage("Please enter a valid email address.", 'error')
+            }]);
+            setInput("");
+            return;
+          }
+        }
+
+        const updated = { ...updateData, [fieldToUpdate]: input };
+
+        try {
+          setLoading(true);
+          const res = await fetch(`${API_URL}?user_id=${updated.user_id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [fieldToUpdate]: input }),
+          });
+          const result = await res.json();
+
+          setMessages(prev => [
+            ...prev,
+            { sender: "bot", text: enhanceMessage(result.message || `${fieldToUpdate} updated successfully!`, 'success') },
+            { sender: "bot", text: enhanceMessage(`Updated user profile:\n\n${formatUser(updated)}`, 'user') },
+            { sender: "bot", text: enhanceMessage("What would you like to do next?\n\n💡 Try: 'add', 'get', 'update', or 'delete'", 'info') },
+          ]);
+        } catch {
+          setMessages(prev => [...prev, { 
+            sender: "bot", 
+            text: enhanceMessage("Failed to update user data. Please try again.", 'error')
+          }]);
+        } finally {
+          setLoading(false);
+          setMode(null);
+          setUpdateStep(null);
+          setUpdateData({});
+          setInput("");
+        }
+        return;
+      }
+    }
+
+    // COMMAND DETECTION
+    if (["add", "update", "get", "delete"].includes(lowerInput)) {
+      if (lowerInput === "add") {
+        setFormData({});
+        setMode("add");
+        setConversationState("name");
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("Let's create a new user profile! I'll guide you through each step.\n\nFirst, what's the user's full name?", 'add')
+        }]);
+      } else if (lowerInput === "update") {
+        setMode("update");
+        setUpdateStep("awaiting_id");
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("I'll help you update a user's information.\n\nPlease enter the User ID of the person you want to update:", 'update')
+        }]);
+      } else if (lowerInput === "get") {
+        setMode("get");
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("I can help you find users! You can search by:\n\n🆔 User ID: Just enter the number\n👤 Name: Enter the full name or partial name\n🌍 ", 'search')
+        }]);
+      } else if (lowerInput === "delete") {
+        setMode("delete");
+        setMessages(prev => [...prev, { 
+          sender: "bot", 
+          text: enhanceMessage("⚠️ **User Deletion**\n\nThis will permanently remove a user from the database.\n\nPlease enter the User ID of the user you want to delete:", 'delete')
+        }]);
+      }
+      setInput("");
+      return;
+    }
+
+    // DEFAULT MESSAGE TO API (for natural language queries)
+    try {
+      setLoading(true);
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input }), 
+      });
+      const data = await res.json();
+      
+      let formatted = enhanceMessage("I couldn't process that request. Please try one of the available commands.", 'warning');
+      
+      if (data?.message) {
+        formatted = enhanceMessage(data.message, 'info');
+      } else if (Array.isArray(data)) {
+        if (data.length === 0) {
+          formatted = enhanceMessage("No users found matching those criteria.", 'error');
+        } else {
+          const userList = data.map((u, i) => `**${i + 1}.** ${formatUser(u)}`).join('\n\n');
+          formatted = enhanceMessage(`Found ${data.length} user(s):\n\n${userList}`, 'search');
+        }
+      } else if (typeof data === "object" && data !== null) {
+        if (data.name) {
+          formatted = enhanceMessage(`User found:\n\n${formatUser(data)}`, 'user');
+        } else {
+          formatted = enhanceMessage(Object.entries(data).map(([k, v]) => `${k}: ${v}`).join('\n'), 'info');
+        }
+      }
+      
+      setMessages(prev => [...prev, { sender: "bot", text: formatted }]);
+    } catch {
+      setMessages(prev => [...prev, { 
+        sender: "bot", 
+        text: enhanceMessage("Server connection failed. Please check your network and try again.", 'error')
+      }]);
+    } finally {
+      setLoading(false);
+      setInput("");
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
   };
 
   return (
     <div className="chatbot-container">
       <div className="chatbot-header">
-        <h2>💬 Smart CRUD Chatbot</h2>
-        <div className="status-indicator">
-          <div className="status-dot"></div>
-          <span>Online</span>
-        </div>
+        <h2>CRUD Chatbot</h2>
+        <p className="subtitle">Your intelligent data management assistant</p>
+        <button className="refresh-button" onClick={handleRefresh}>
+          🔄 New Session
+        </button>
       </div>
 
-      <div className="chat-window">
-        {messages.map((m, i) => (
-          <div key={i} className={`message ${m.role}`}>
-            <div className="message-bubble">
-              <div className="message-header">
-                <strong>{m.role === "user" ? "You" : "Bot"}</strong>
-              </div>
-              <pre className="message-text">{m.text}</pre>
-            </div>
+      <div className="chat-box" ref={chatBoxRef}>
+        {messages.length === 0 ? (
+          <div className="empty-state">
+            <h3>🚀 Ready to start!</h3>
+            <p>Type a command or ask me anything</p>
           </div>
-        ))}
+        ) : (
+          messages.map((msg, i) => (
+            <div key={i} className={`message ${msg.sender}`}>
+              {msg.sender === "bot" && <strong>Assistant</strong>}
+              <span>{msg.text}</span>
+            </div>
+          ))
+        )}
+
         {loading && (
-          <div className="message bot">
-            <div className="message-bubble loading">
-              <div className="typing-indicator">
-                <div className="dot"></div>
-                <div className="dot"></div>
-                <div className="dot"></div>
-              </div>
-              <span>Bot is typing...</span>
+          <div className="typing-indicator">
+            <div className="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
-      <div className="input-form">
-        <div className="input-container">
-          <input
+      <div className="input-section">
+        <div className="input-wrapper">
+          <textarea
+            className="chat-input"
+            rows="1"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleInput(e)}
-            placeholder="Try: 'age above 30', 'user muthu'..."
-            className="message-input"
-            disabled={loading}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message here... or click 🎤 to speak"
           />
           <button
-            onClick={handleInput}
-            disabled={loading || !input.trim()}
-            className="send-button"
+            className="voice-button"
+            onClick={handleVoiceInput}
+            title="Click to speak"
+            disabled={loading}
           >
-            {loading ? (
-              <div className="button-spinner"></div>
-            ) : (
-              <svg viewBox="0 0 24 24" className="send-icon">
-                <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
-              </svg>
-            )}
+            🎤
           </button>
           <button
-    className={`mic-button ${isListening ? "listening" : ""}`}
-    onClick={() => {
-      if (recognitionRef.current) {
-        if (isListening) {
-          recognitionRef.current.stop();
-          setIsListening(false);
-        } else {
-          recognitionRef.current.start();
-          setIsListening(true);
-        }
-      }
-    }}
-    disabled={loading}
-    title="Speak your command"
-  ></button>
+            className="send-button"
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+          >
+            {loading ? "⏳ Sending..." : "Send 📤"}
+          </button>
         </div>
       </div>
     </div>
