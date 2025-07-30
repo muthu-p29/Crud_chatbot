@@ -626,7 +626,7 @@ Ready to get started? Just type a command or ask me anything! 🌟`,
         setMode("get");
         setMessages(prev => [...prev, { 
           sender: "bot", 
-          text: enhanceMessage("I can help you find users! You can search by:\n\n🆔 User ID: Just enter the number\n👤 Name: Enter the full name or partial name\n🌍 ", 'search')
+          text: enhanceMessage("I can help you find users! You can search by:\n\n🆔 User ID: Just enter the number\n👤 Name: Enter the full name or partial name\n ", 'search')
         }]);
       } else if (lowerInput === "delete") {
         setMode("delete");
