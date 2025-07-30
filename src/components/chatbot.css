@@ -521,87 +521,196 @@ body {
     border-radius: 0;
     max-width: 100%;
   }
-  
+
   .chatbot-header {
-    padding: 20px 20px;
+    padding: 20px;
   }
-  
+
   .chatbot-header h2 {
     font-size: 1.8rem;
   }
-  
+
   .chat-box {
     padding: 20px 15px;
   }
-  
+
   .message.user span,
   .message.bot span {
     max-width: 90%;
     font-size: 0.9rem;
   }
-  
+
   .input-section {
     padding: 15px;
   }
-  
+
+  /* ✅ Keep input layout horizontal */
   .input-wrapper {
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;      /* horizontal layout */
+    align-items: center;      /* align items in middle */
+    flex-wrap: nowrap;        /* no wrapping */
     gap: 8px;
-    align-items: stretch;
+    width: 100%;
   }
-  
+
   .chat-input {
+    flex: 1;                  /* take available space */
+    min-width: 0;             /* prevent overflow */
     padding: 12px 16px;
     min-height: 44px;
+    font-size: 1rem;
+    border-radius: 20px;
   }
-  
-  .voice-button, .send-button {
+
+  .voice-button,
+  .send-button {
+    flex-shrink: 0;           /* prevent shrinking */
+    width: auto;
+    min-width: 36px;
+    height: 40px;
+    padding: 0 10px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+  }
+}@media (max-width: 750px) {
+  .chatbot-container {
+    height: 100vh;
+    border-radius: 0;
+    max-width: 100%;
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+
+  .chatbot-header {
+    padding: 20px;
+  }
+
+  .chatbot-header h2 {
+    font-size: 1.8rem;
+  }
+
+  .chat-box {
+    padding: 20px 15px;
+  }
+
+  .message.user span,
+  .message.bot span {
+    max-width: 90%;
+    font-size: 0.9rem;
+  }
+
+  .input-section {
+    padding: 15px;
+    box-sizing: border-box; /* Include padding in width calculation */
+  }
+
+  /* ✅ Horizontal input layout with increased input width */
+  .input-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 10px;
     width: 100%;
-    min-width: unset;
+    box-sizing: border-box;
+  }
+
+  .chat-input {
+    flex: 1;
+    min-width: 0;
+    width: calc(100% - 100px); /* Reserve space for buttons */
+    padding: 12px 16px;
+    min-height: 44px;
+    font-size: 1rem;
+    border-radius: 20px;
+    box-sizing: border-box;
+  }
+
+  .voice-button,
+  .send-button {
+    flex-shrink: 0;
+    width: 44px; /* Fixed width for consistency */
     height: 44px;
-    border-radius: 15px;
+    padding: 0;
+    font-size: 0.9rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
+  .chatbot-container {
+    overflow-x: hidden; /* Prevent horizontal scroll */
+  }
+
   .input-wrapper {
+    display: flex;
     flex-direction: row;
     align-items: center;
     flex-wrap: nowrap;
     gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
   }
+
   .chatbot-header {
     padding: 15px;
   }
-  
+
   .chatbot-header h2 {
     font-size: 1.5rem;
   }
-  
+
   .chat-box {
     padding: 15px 10px;
   }
+
   .chat-input {
-  width: 100%;
-  overflow: hidden;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-  .message.user span,
-  .message.bot span {
-    padding: 12px 16px;
-    font-size: 0.85rem;
+    flex: 1;
+    min-width: 0;
+    width: calc(100% - 80px); /* Reserve space for buttons on mobile */
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border-radius: 18px;
+    height: 40px;
+    box-sizing: border-box;
   }
+
   .voice-button,
   .send-button {
     flex-shrink: 0;
-    width: auto;
-    min-width: 44px;
-    height: 44px;
-  }
-  .input-section {
-    padding: 10px;
+    width: 36px; /* Consistent button size */
+    height: 40px;
+    padding: 0;
+    font-size: 0.8rem;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
- 
+  .message.user span,
+  .message.bot span {
+    padding: 12px 14px;
+    font-size: 0.85rem;
+  }
+
+  .input-section {
+    padding: 10px;
+    box-sizing: border-box;
+  }
+}
+
+/* Additional rule to prevent any horizontal scrolling */
+* {
+  box-sizing: border-box;
+}
+
+.input-section, 
+.input-wrapper, 
+.chat-input {
+  max-width: 100%;
 }
