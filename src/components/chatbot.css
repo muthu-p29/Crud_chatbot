@@ -564,6 +564,12 @@ body {
 }
 
 @media (max-width: 480px) {
+  .input-wrapper {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
   .chatbot-header {
     padding: 15px;
   }
@@ -586,12 +592,13 @@ body {
     padding: 12px 16px;
     font-size: 0.85rem;
   }
-  .input-wrapper {
-    max-width: 100%;
-    overflow-x: hidden;
-    flex-wrap: wrap;
+  .voice-button,
+  .send-button {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
   }
-  
   .input-section {
     padding: 10px;
   }
